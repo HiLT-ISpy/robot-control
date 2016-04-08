@@ -7,7 +7,7 @@ from naoqi import ALModule, ALProxy, ALBroker
 
 def connect(address="bobby.local", port=9559, name="r", brokername="broker"):
 	global broker
-	broker = ALBroker("broker", "0.0.0.0", 0, address, 9559)
+	broker = ALBroker(brokername, "0.0.0.0", 0, address, 9559)
 	global r
 	r = Robot(name, address, 9559)
 
@@ -34,8 +34,6 @@ class Robot(ALModule):
 		# robot movement
 		self.motion = ALProxy("ALMotion", address, port)
 		self.pose = ALProxy("ALRobotPosture", address, port)
-		# initialize body to a (stable) crouch
-		self.wake()
 
 		# face tracking
 		self.track = ALProxy("ALFaceTracker", address, port)
@@ -96,13 +94,6 @@ class Robot(ALModule):
 		self.pose.goToPosture("Crouch", 0.2)
 		self.turnHead(pitch = math.radians(-10))
 
-	def sit(self):
-		"""
-		Goes to Crouch position
-		"""
-
-		self.pose.goToPosture("Crouch")
-
 	def rest(self):
 		"""
 		Goes to Crouch position and turns robot stiffnesses off
@@ -110,16 +101,58 @@ class Robot(ALModule):
 
 		self.motion.rest()
 
-	def turnHead(self, yaw = None, pitch = None, speed = 0.3):
+	def sit(self):
 		"""
-		Turns robot head to the specified yaw and/or pitch in radians at the given speed.
-		Yaw can range from 119.5 deg (left) to -119.5 deg (right) and pitch can range from 38.5 deg (up) to -29.5 deg (down).
+		Goes to Crouch position
+		"""
+
+		self.pose.goToPosture("Crouch")
+
+	def stand(self):
+		"""
+		Robot stands
+		"""
+
+		self.pose.goToPosture("Stand", 0.4)
+
+	def turnHead(self, yaw = None, pitch = None, speed = 0.2):
+		"""
+		Turns robot head to the specified yaw and/or pitch in degrees at the given speed.
+		Yaw can range from 119.5 deg (left) to -119.5 deg (right) and pitch can range from 38.5 deg (down) to -29.5 deg (up).
 		"""
 
 		if not yaw is None:
-			self.motion.setAngles("HeadYaw", yaw, speed)
+			self.motion.setAngles("HeadYaw", math.radians(yaw), speed)
 		if not pitch is None:
-			self.motion.setAngles("HeadPitch", pitch, speed)
+			self.motion.setAngles("HeadPitch", math.radians(pitch), speed)
+
+	def moveRightArm(self, pitch): # add yaw!
+		"""
+		Extends robot's right arm to point at the specified yaw and pitch in degrees.
+		The angles below are RShoulderPitch, RShoulderRoll, RElbowRoll, RWristYaw, and RHand.
+		The angle ranges can be found at http://doc.aldebaran.com/1-14/family/robots/joints_robot.html#right-arm-joints
+		For example, the pitch ranges from 119.5 (down) to 0 (horizontal) to -119.5 (up).
+		"""
+
+		angles = [pitch, 12, 39, 3, -8] # angles in degrees
+		angles = [math.radians(angle) for angle in angles] # convert to radians
+		angles.append(1) # also open hand
+		times = [1, 1, 1.5, 1.5, 1.5, 1.5]
+		self.motion.angleInterpolation("RArm", angles, times, True) # move to those arm angles and open hand
+
+	def moveLeftArm(self, pitch): # add yaw!
+		"""
+		Extends robot's left arm to point at the specified yaw and pitch in degrees.
+		The angles below are LShoulderPitch, LShoulderRoll, LElbowRoll, LWristYaw, and LHand.
+		The angle ranges can be found at http://doc.aldebaran.com/1-14/family/robots/joints_robot.html#left-arm-joints
+		For example, the pitch ranges from 119.5 (down) to 0 (horizontal) to -119.5 (up).
+		"""
+
+		angles = [pitch, -12, -39, -3, 8] # angles in degrees
+		angles = [math.radians(angle) for angle in angles] # convert to radians
+		angles.append(1) # also open hand
+		times = [1, 1, 1.5, 1.5, 1.5, 1.5]
+		self.motion.angleInterpolation("LArm", angles, times, True) # move to those arm angles and open hand
 
 	def colorEyes(self, color, fade_duration = 0.2):
 		"""
@@ -135,7 +168,7 @@ class Robot(ALModule):
 
 	def getHeadAngles(self):
 		"""
-		Returns current robot head angles as a list of yaw, pitch.
+		Returns current robot head angles in radians as a list of yaw, pitch.
 		For yaw, from the robot's POV, left is positive and right is negative. For pitch, up is positive and down is negative.
 		See http://doc.aldebaran.com/2-1/family/robots/joints_robot.html for info on the range of its yaw and pitch.
 		"""
@@ -144,6 +177,15 @@ class Robot(ALModule):
 
 		# return adjusted robot head angles
 		return [robot_head_yaw, -robot_head_pitch]
+
+	def getArmAngles(self):
+		"""
+		Returns all arm angles in radians as a list in the following order.
+		[[LShoulderPitch, LShoulderRoll, LElbowRoll, LWristYaw, LHand],
+		[RShoulderPitch, RShoulderRoll, RElbowRoll, RWristYaw, RHand]]
+		"""
+
+		return [self.motion.getAngles("LArm", True), self.motion.getAngles("RArm", True)]
 
 	def resetEyes(self):
 		"""

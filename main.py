@@ -1,11 +1,16 @@
+import math
+from language import meaning, introduce
 import robot
-from language import meaning
 
-print "Hi, I'm Bobby. What would you like me to do?"
-print "Examples: Is it pink? Point to the left. Look down."
+robot_ip = "bobby.local"
+robot.connect(robot_ip)
+robot.robot().wake()
+robot.robot().stand()
+robot.robot().trackFace()
+introduce()
 
 words = ""
-while meaning(words) != "quit":
+while not (len(words) == 1 and meaning(words) == "stop"):
     # get instructions
     text = raw_input("> ")
     text = text.lower()
@@ -13,33 +18,40 @@ while meaning(words) != "quit":
 
     # looking
     if meaning(words) is "look":
-        if meaning(words[1:]) is "right":
-            # look right
-            print "look r"
+        if meaning(words[1:]) is "forward":
+            robot.robot().turnHead(yaw = 0, pitch = -5)
+        elif meaning(words[1:]) is "right":
+            robot.robot().turnHead(yaw = -60, pitch = -5)
         elif meaning(words[1:]) is "left":
-            # look left
-            print "look l"
+            robot.robot().turnHead(yaw = 60, pitch = -5)
         elif meaning(words[1:]) is "up":
-            print "look u"
+            robot.robot().turnHead(pitch = -25)
         elif meaning(words[1:]) is "down":
-            print "look d"
+            robot.robot().turnHead(pitch = 30)
 
     # pointing
     elif meaning(words) is "point":
         if meaning(words[1:]) is "right":
-            print "point r"
+            robot.robot().moveRightArm(10)
         elif meaning(words[1:]) is "left":
-            print "point l"
-        elif meaning(words[1:]) is "up":
-            print "point u"
-        elif meaning(words[1:]) is "down":
-            print "point d"
+            robot.robot().moveLeftArm(10)
 
     # speaking
-    else:
+    elif meaning(words) != "stop":
+        robot.robot().say(text, block = False)
         # account for "Ask if it's blue", "Say, "Is it blue?", "Ask him if it's blue"
-        # speak text
-        print text
+
+    # stopping actions
+    if meaning(words) is "stop":
+        if meaning(words[1:]) is "point":
+            robot.robot().moveRightArm(80)
+            robot.robot().moveLeftArm(80)
+
+robot.robot().rest()
+
+# rest arm angles [L, R]: [[1.389762043952942, 0.1548919677734375, -0.7992560863494873, -1.0553500652313232, 0.18557214736938477, 0.014799952507019043], [1.4235939979553223, -0.16264605522155762, 0.7899680137634277, 1.0462298393249512, -0.1825878620147705, 0.014799952507019043]]
+# r-arm pointing arm angles: [[1.3805580139160156, 0.11807608604431152, -0.8069260120391846, -1.084496021270752, 0.1840381622314453, 0.014799952507019043], [0.3804740905761719, 0.21318411827087402, 0.6825881004333496, 0.05066394805908203, -0.14270401000976562, 0.014799952507019043]]
+
 """
 speaking
     is it pink
